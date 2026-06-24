@@ -22,7 +22,7 @@ public abstract class AbstractIntegrationTest {
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
 
     static final LocalStackContainer LOCALSTACK =
-            new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.0"))
+            new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.5"))
                     .withServices(LocalStackContainer.Service.S3);
 
     static {

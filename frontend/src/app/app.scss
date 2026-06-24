@@ -1,0 +1,38 @@
+:host {
+  display: block;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 64px;
+  background: #0d3b66;
+  color: #fff;
+
+  h1 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  nav a {
+    color: #cfe3f7;
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+    padding-bottom: 4px;
+
+    &.active {
+      color: #fff;
+      border-bottom: 2px solid #f4a261;
+    }
+  }
+}
+
+main {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
