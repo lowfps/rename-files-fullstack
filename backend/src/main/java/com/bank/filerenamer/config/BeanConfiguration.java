@@ -1,14 +1,17 @@
 package com.bank.filerenamer.config;
 
 import com.bank.filerenamer.application.BucketService;
+import com.bank.filerenamer.application.EnqueueProcessService;
 import com.bank.filerenamer.application.ManageRulesService;
 import com.bank.filerenamer.application.ProcessFilesService;
 import com.bank.filerenamer.application.QueryResultsService;
 import com.bank.filerenamer.domain.port.in.BucketUseCase;
+import com.bank.filerenamer.domain.port.in.EnqueueProcessUseCase;
 import com.bank.filerenamer.domain.port.in.ManageRulesUseCase;
 import com.bank.filerenamer.domain.port.in.ProcessFilesUseCase;
 import com.bank.filerenamer.domain.port.in.QueryResultsUseCase;
 import com.bank.filerenamer.domain.port.out.FileStoragePort;
+import com.bank.filerenamer.domain.port.out.ProcessJobQueuePort;
 import com.bank.filerenamer.domain.port.out.ResultRepositoryPort;
 import com.bank.filerenamer.domain.port.out.RuleRepositoryPort;
 import com.bank.filerenamer.domain.service.DateNormalizer;
@@ -50,6 +53,11 @@ public class BeanConfiguration {
                                                    ResultRepositoryPort resultRepository,
                                                    RuleEngine ruleEngine) {
         return new ProcessFilesService(fileStorage, ruleRepository, resultRepository, ruleEngine);
+    }
+
+    @Bean
+    public EnqueueProcessUseCase enqueueProcessUseCase(ProcessJobQueuePort jobQueue) {
+        return new EnqueueProcessService(jobQueue);
     }
 
     @Bean

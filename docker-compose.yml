@@ -2,7 +2,7 @@ services:
   localstack:
     image: localstack/localstack:3.5
     environment:
-      - SERVICES=s3
+      - SERVICES=s3,sqs
       - DEBUG=0
     ports:
       - "4566:4566"
@@ -38,6 +38,8 @@ services:
       - DB_PASSWORD=filerenamer
       - S3_ENDPOINT=http://localstack:4566
       - S3_BUCKET=incoming-files
+      - SQS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE=process-jobs
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test

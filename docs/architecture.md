@@ -5,6 +5,8 @@
 ```mermaid
 flowchart LR
     UI["Angular SPA<br/>(nginx)"] -- REST /api --> API["Spring Boot API<br/>(arquitectura hexagonal)"]
+    API -- "encola (async)" --> SQS[("SQS / LocalStack<br/>process-jobs")]
+    SQS -- "consume (worker)" --> API
     API -- AWS SDK v2 --> S3[("S3 / LocalStack<br/>bucket incoming-files")]
     API -- JDBC --> PG[("PostgreSQL<br/>reglas · versiones · resultados")]
     API --- FW["Flyway<br/>schema + seed"]
@@ -16,10 +18,12 @@ flowchart LR
 flowchart TB
     subgraph IN["Adaptadores de entrada"]
         WEB["REST Controllers<br/>RuleController · ProcessController · FilesController"]
+        WORKER["SqsProcessWorker<br/>(consumidor asíncrono)"]
     end
 
     subgraph APP["Aplicación (casos de uso)"]
         PFS["ProcessFilesService"]
+        EPS["EnqueueProcessService"]
         MRS["ManageRulesService"]
         QRS["QueryResultsService"]
         BKS["BucketService"]
@@ -37,14 +41,17 @@ flowchart TB
     subgraph OUT["Adaptadores de salida"]
         JPA["RuleRepositoryAdapter<br/>ResultRepositoryAdapter (JPA)"]
         S3A["S3StorageAdapter (AWS SDK v2)"]
+        SQSA["SqsJobQueueAdapter (AWS SDK v2)"]
     end
 
     WEB --> PIN
+    WORKER --> PIN
     PIN -.implementan.- APP
     APP --> ENGINE
     APP --> POUT
     POUT -.implementan.- JPA
     POUT -.implementan.- S3A
+    POUT -.implementan.- SQSA
     ENGINE --> DATE
     ENGINE --> TPL
     ENGINE --> MODEL
@@ -74,6 +81,30 @@ flowchart TB
     I -- Sí --> J["ERROR"]
     I -- No --> K["TRANSFORMED<br/>nombre estandarizado"]
 ```
+
+## Procesamiento asíncrono (SQS)
+
+El mismo caso de uso `ProcessFilesUseCase.process()` se dispara por **dos adaptadores de entrada**
+distintos, sin que el dominio ni el motor de reglas cambien:
+
+```mermaid
+flowchart LR
+    C["Cliente"] -- "POST /api/process/async" --> CTRL["ProcessController"]
+    CTRL --> EPS["EnqueueProcessService"]
+    EPS --> PORT["ProcessJobQueuePort"]
+    PORT -.implementa.- SQSA["SqsJobQueueAdapter"]
+    SQSA -- "sendMessage" --> Q[("SQS process-jobs")]
+    Q -- "long-poll" --> W["SqsProcessWorker<br/>(@Scheduled)"]
+    W --> PFU["ProcessFilesUseCase.process()"]
+    PFU --> ENG["MISMO RuleEngine"]
+```
+
+- La petición HTTP responde `202 Accepted` con un `jobId` de inmediato (no procesa inline).
+- El worker consume el mensaje, ejecuta el motor y persiste la ejecución; el panel la muestra al
+  consultarla. Entrega *al menos una vez*: si el procesamiento falla, el mensaje no se borra y SQS
+  lo reintenta tras el *visibility timeout*.
+- Demostración de la arquitectura hexagonal: agregar un canal de entrada nuevo (SQS) **no tocó** el
+  dominio; solo se añadieron un puerto, su adaptador y el worker.
 
 ## Modelo de datos (PostgreSQL)
 

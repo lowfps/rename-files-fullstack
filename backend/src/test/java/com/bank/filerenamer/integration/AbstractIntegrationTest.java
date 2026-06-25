@@ -17,21 +17,23 @@ import org.testcontainers.utility.DockerImageName;
 public abstract class AbstractIntegrationTest {
 
     protected static final String BUCKET = "incoming-files";
+    protected static final String QUEUE = "process-jobs";
 
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:16-alpine"));
 
     static final LocalStackContainer LOCALSTACK =
             new LocalStackContainer(DockerImageName.parse("localstack/localstack:3.5"))
-                    .withServices(LocalStackContainer.Service.S3);
+                    .withServices(LocalStackContainer.Service.S3, LocalStackContainer.Service.SQS);
 
     static {
         POSTGRES.start();
         LOCALSTACK.start();
         try {
             LOCALSTACK.execInContainer("awslocal", "s3api", "create-bucket", "--bucket", BUCKET);
+            LOCALSTACK.execInContainer("awslocal", "sqs", "create-queue", "--queue-name", QUEUE);
         } catch (Exception e) {
-            throw new IllegalStateException("No se pudo crear el bucket de prueba", e);
+            throw new IllegalStateException("No se pudieron crear los recursos AWS de prueba", e);
         }
     }
 
@@ -46,5 +48,12 @@ public abstract class AbstractIntegrationTest {
         registry.add("app.s3.region", LOCALSTACK::getRegion);
         registry.add("app.s3.access-key", LOCALSTACK::getAccessKey);
         registry.add("app.s3.secret-key", LOCALSTACK::getSecretKey);
+
+        registry.add("app.sqs.queue-name", () -> QUEUE);
+        registry.add("app.sqs.endpoint", () -> LOCALSTACK.getEndpointOverride(LocalStackContainer.Service.SQS).toString());
+        registry.add("app.sqs.region", LOCALSTACK::getRegion);
+        registry.add("app.sqs.access-key", LOCALSTACK::getAccessKey);
+        registry.add("app.sqs.secret-key", LOCALSTACK::getSecretKey);
+        registry.add("app.sqs.poll-delay-ms", () -> "500");
     }
 }

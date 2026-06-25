@@ -47,3 +47,8 @@ export interface ProcessRun {
   summary: Summary;
   results: RenameResult[];
 }
+
+export interface EnqueueResponse {
+  jobId: string;
+  status: string;
+}

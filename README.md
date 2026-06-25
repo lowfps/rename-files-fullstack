@@ -7,7 +7,8 @@ configurable** y mostrando el resultado, los errores de mapeo y un panel de cont
 - **Backend:** Java 21 · Spring Boot 4.1 · **arquitectura hexagonal** (Ports & Adapters)
 - **Frontend:** Angular 20 (standalone + signals)
 - **Persistencia:** PostgreSQL (catálogo de reglas, versionamiento y resultados) · Flyway
-- **Cloud:** Amazon S3 vía **LocalStack** (AWS SDK v2); migrable a AWS Free Tier sin tocar el dominio
+- **Cloud:** Amazon S3 + **SQS** vía **LocalStack** (AWS SDK v2); migrable a AWS Free Tier sin tocar el dominio
+- **Procesamiento:** síncrono (REST) y **asíncrono** (SQS + worker)
 - **Infra:** Docker Compose (localstack · postgres · backend · frontend)
 
 > Diseño priorizado sobre cantidad de features: lo central es la **claridad y flexibilidad del motor
@@ -30,15 +31,17 @@ Esto levanta:
 | frontend   | http://localhost               | UI Angular (nginx, proxy `/api`)         |
 | backend    | http://localhost:8080          | API REST Spring Boot                     |
 | postgres   | localhost:5432                 | Base de datos                            |
-| localstack | http://localhost:4566          | S3 simulado (bucket `incoming-files`)    |
+| localstack | http://localhost:4566          | S3 (`incoming-files`) + SQS (`process-jobs`) |
 
 **Flujo de demostración:**
 1. Abrir http://localhost → pestaña **Panel**.
 2. **Sembrar lote en S3** (simulación de carga batch).
 3. **Procesar**: el motor lee el bucket, aplica las reglas y muestra el panel de control + la tabla
    `origen → transformado · estado · regla`.
-4. Pestaña **Reglas**: crear/editar/desactivar reglas, ver **historial de versiones**.
-5. Volver al **Panel** y **Reprocesar** para ver el efecto del nuevo catálogo (trazado por versión).
+4. **Procesar (asíncrono · SQS)**: encola un trabajo (respuesta inmediata) que un worker consume y
+   procesa por su cuenta; el panel se actualiza al detectar la nueva ejecución.
+5. Pestaña **Reglas**: crear/editar/desactivar reglas, ver **historial de versiones**.
+6. Volver al **Panel** y **Reprocesar** para ver el efecto del nuevo catálogo (trazado por versión).
 
 ---
 
@@ -87,11 +90,14 @@ com.bank.filerenamer
 ├── domain            # núcleo SIN frameworks: model, service (RuleEngine…), port.in / port.out
 ├── application       # casos de uso que orquestan puertos (sin Spring)
 ├── adapter
-│   ├── in.web        # Controllers + DTOs + manejo de errores
+│   ├── in
+│   │   ├── web          # Controllers + DTOs + manejo de errores
+│   │   └── messaging    # SqsProcessWorker (consumidor asíncrono) → mismo caso de uso
 │   └── out
-│       ├── persistence   # JPA (PostgreSQL): reglas, versiones, resultados
-│       └── storage       # S3 (AWS SDK v2)
-└── config            # composition root (cableado) + configuración S3/CORS
+│       ├── persistence  # JPA (PostgreSQL): reglas, versiones, resultados
+│       ├── storage      # S3 (AWS SDK v2)
+│       └── messaging    # SqsJobQueueAdapter (publica trabajos en SQS)
+└── config            # composition root (cableado) + configuración S3/SQS/CORS
 ```
 
 La **regla de dependencia** (el dominio no conoce Spring/AWS/JPA; la aplicación solo conoce el
@@ -105,7 +111,8 @@ dominio) se verifica automáticamente con **ArchUnit** en `HexagonalArchitecture
 |--------|-----------------------------------|--------------------------------------|
 | GET    | `/api/files`                      | Listar archivos del bucket           |
 | POST   | `/api/files/seed`                 | Sembrar lote de muestra (batch)      |
-| POST   | `/api/process`                    | Procesar bucket → ejecución + resumen|
+| POST   | `/api/process`                    | Procesar bucket (síncrono) → ejecución + resumen |
+| POST   | `/api/process/async`              | Encolar en SQS → `202` + `jobId` (lo procesa el worker) |
 | POST   | `/api/process/{runId}/reprocess`  | Reprocesar con reglas vigentes       |
 | GET    | `/api/runs` · `/api/runs/{id}`    | Ejecuciones / panel de control       |
 | GET    | `/api/results?runId=`             | Detalle por archivo                  |

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ProcessRun, Rule, RuleRequest } from './models';
+import { EnqueueResponse, ProcessRun, Rule, RuleRequest } from './models';
 
 const BASE = '/api';
 
@@ -21,6 +21,10 @@ export class ApiService {
   // --- Proceso ---
   process(): Observable<ProcessRun> {
     return this.http.post<ProcessRun>(`${BASE}/process`, {});
+  }
+
+  processAsync(): Observable<EnqueueResponse> {
+    return this.http.post<EnqueueResponse>(`${BASE}/process/async`, {});
   }
 
   reprocess(runId: number): Observable<ProcessRun> {
