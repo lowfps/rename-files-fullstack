@@ -22,7 +22,16 @@ public class S3Properties {
             "cuotas_bdb_20260430.txt",
             "garantias_solo_firma_20260430.txt",
             "activos_inmob_bdb_20260430.txt",
-            "PrendasPajaro.txt");
+            "PrendasPajaro.txt",
+            // --- Lote adicional para probar los 4 estados del contador ---
+            "PHO_CD_DES_20260615",
+            "PHO_SV_20260601",
+            "garantias_finca_rural_20260501.txt",
+            "PHO_CD_DES_20261301",
+            "PHO_SV_20260231",
+            "PHO_CK_20269999.txt",
+            "PHO_XX_20260430.txt",
+            "reporte_consolidado_mensual.txt");
     /** Endpoint S3; nulo para usar el endpoint real de AWS. */
     private String endpoint;
     private String region = "us-east-1";
